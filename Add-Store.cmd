@@ -1,4 +1,5 @@
 @echo off
+
 :: Check Windows version (Windows 11 24H2 minimum required)
 for /f "tokens=6 delims=[]. " %%G in ('ver') do if %%G lss 16299 goto :version
 
@@ -22,12 +23,14 @@ if not exist "*WindowsStore*.xml" goto :nofiles
 
 :: Set file variables
 for /f %%i in ('dir /b *WindowsStore*.msixbundle 2^>nul') do set "Store=%%i"
-for /f %%i in ('dir /b *NET.Native.Framework*.appx 2^>nul ^| find /i "x64"') do set "Framework6X64=%%i"
-for /f %%i in ('dir /b *NET.Native.Framework*.appx 2^>nul ^| find /i "arm64"') do set "Framework6arm64=%%i"
-for /f %%i in ('dir /b *NET.Native.Runtime*.appx 2^>nul ^| find /i "x64"') do set "Runtime6X64=%%i"
-for /f %%i in ('dir /b *NET.Native.Runtime*.appx 2^>nul ^| find /i "arm64"') do set "Runtime6arm64=%%i"
+for /f %%i in ('dir /b *NET.Native.Framework*.appx 2^>nul ^| find /i "x64"') do set "FrameworkX64=%%i"
+for /f %%i in ('dir /b *NET.Native.Framework*.appx 2^>nul ^| find /i "arm64"') do set "Frameworkarm64=%%i"
+for /f %%i in ('dir /b *NET.Native.Runtime*.appx 2^>nul ^| find /i "x64"') do set "RuntimeX64=%%i"
+for /f %%i in ('dir /b *NET.Native.Runtime*.appx 2^>nul ^| find /i "arm64"') do set "Runtimearm64=%%i"
 for /f %%i in ('dir /b *VCLibs*.appx 2^>nul ^| find /i "x64"') do set "VCLibsX64=%%i"
 for /f %%i in ('dir /b *VCLibs*.appx 2^>nul ^| find /i "arm64"') do set "VCLibsarm64=%%i"
+for /f %%i in ('dir /b *UX.Xaml*.appx 2^>nul ^| find /i "x64"') do set "UXXamlX64=%%i"
+for /f %%i in ('dir /b *UX.Xaml*.appx 2^>nul ^| find /i "arm64"') do set "UXXamlarm64=%%i"
 
 :: Check optional components
 if exist "*StorePurchaseApp*.appxbundle" if exist "*StorePurchaseApp*.xml" (
@@ -36,21 +39,16 @@ if exist "*StorePurchaseApp*.appxbundle" if exist "*StorePurchaseApp*.xml" (
 if exist "*DesktopAppInstaller*.msixbundle" if exist "*DesktopAppInstaller*.xml" (
     for /f %%i in ('dir /b *DesktopAppInstaller*.msixbundle 2^>nul') do set "AppInstaller=%%i"
 )
-if exist "*XboxIdentityProvider*.msixbundle" if exist "*XboxIdentityProvider*.xml" (
-    for /f %%i in ('dir /b *XboxIdentityProvider*.appxbundle 2^>nul') do set "XboxIdentity=%%i"
-)
 
 :: Set dependencies based on architecture
 if /i %arch%==x64 (
-    set "DepStore=%VCLibsX64%,%Framework6X64%,%Runtime6X64%"
-    set "DepPurchase=%VCLibsX64%,%Framework6X64%,%Runtime6X64%"
-    set "DepXbox=%VCLibsX64%,%Framework6X64%,%Runtime6X64%"
-    set "DepInstaller=%VCLibsX64%"
+    set "DepStore=%VCLibsX64%,%FrameworkX64%,%RuntimeX64%,%UXXamlX64%"
+    set "DepPurchase=%VCLibsX64%,%FrameworkX64%,%RuntimeX64%,%UXXamlX64%"
+    set "DepInstaller=%VCLibsX64%,%UXXamlX64%"
 ) else (
-    set "DepStore=%VCLibsarm64%,%Framework6arm64%,%Runtime6arm64%"
-    set "DepPurchase=%VCLibsarm64%,%Framework6arm64%,%Runtime6arm64%"
-    set "DepXbox=%VCLibsarm64%,%Framework6arm64%,%Runtime6arm64%"
-    set "DepInstaller=%VCLibsarm64%"
+    set "DepStore=%VCLibsarm64%,%Frameworkarm64%,%Runtimearm64%,%UXXamlarm64%"
+    set "DepPurchase=%VCLibsarm64%,%Frameworkarm64%,%Runtimearm64%,%UXXamlarm64%"
+    set "DepInstaller=%VCLibsarm64%,%UXXamlarm64%"
 )
 
 :: Verify all dependencies exist
@@ -67,7 +65,6 @@ echo ============================================================
 echo Installing Microsoft Store
 echo ============================================================
 echo.
-
 1>nul 2>nul %PScommand% Add-AppxProvisionedPackage -Online -PackagePath %Store% -DependencyPackagePath %DepStore% -LicensePath Microsoft.WindowsStore_8wekyb3d8bbwe.xml
 for %%i in (%DepStore%) do (
     %PScommand% Add-AppxPackage -Path %%i
@@ -95,16 +92,6 @@ if defined AppInstaller (
     %PScommand% Add-AppxPackage -Path %AppInstaller%
 )
 
-if defined XboxIdentity (
-    echo.
-    echo ============================================================
-    echo Installing Xbox Identity Provider
-    echo ============================================================
-    echo.
-    1>nul 2>nul %PScommand% Add-AppxProvisionedPackage -Online -PackagePath %XboxIdentity% -DependencyPackagePath %DepXbox% -LicensePath Microsoft.XboxIdentityProvider_8wekyb3d8bbwe.xml
-    %PScommand% Add-AppxPackage -Path %XboxIdentity%
-)
-
 goto :fin
 
 :uac
@@ -120,7 +107,7 @@ exit
 :version
 echo.
 echo ============================================================
-echo Error: Windows 11 24H2 (version 26100 or later) required
+echo Error: Windows 11 24H2 (build 26100 or later) required
 echo ============================================================
 echo.
 echo Press any key to exit.
